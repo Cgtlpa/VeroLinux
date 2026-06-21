@@ -85,6 +85,17 @@ func main() {
 ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝   ╚═╝   ╚══════╝
 ` + reset)
 
+	// Tux ASCII art logo at the top
+	fmt.Println(purple + `
+    .--.
+   |o_o |
+   |:_/ |
+  //   \ \
+ (|     | )
+/'\_   _/'\
+\___)=(___/
+` + reset)
+
 	fmt.Println(purple + "======")
 	fmt.Printf("      Welcome to the %s Linux Installer\n", distroName)
 	fmt.Println("======" + reset)
@@ -214,9 +225,12 @@ func runWizard(cfg *Config) {
 
 	hnRegex := regexp.MustCompile(`^[a-zA-col1-9][a-zA-Z0-9\-]{1,62}$`)
 	for {
-		fmt.Print("\nGive your machine a hostname: ")
+		fmt.Print("\nGive your machine a hostname [default: exodite]: ")
 		hn, _ := reader.ReadString('\n')
 		hn = strings.TrimSpace(hn)
+		if hn == "" {
+			hn = "exodite"
+		}
 		if hnRegex.MatchString(hn) {
 			cfg.Hostname = hn
 			break
@@ -242,7 +256,7 @@ func runWizard(cfg *Config) {
 		fmt.Print("\nType it again to confirm: ")
 		p2, _ := term.ReadPassword(int(syscall.Stdin))
 		fmt.Println()
-		if len(p1) >= 6 && string(p1) == string(p2) {
+		if len(p1) >= 1 && string(p1) == string(p2) {
 			cfg.Password = string(p1)
 			break
 		}
@@ -255,16 +269,32 @@ func runWizard(cfg *Config) {
 		fmt.Print("\nType it again to confirm root password: ")
 		p2, _ := term.ReadPassword(int(syscall.Stdin))
 		fmt.Println()
-		if len(p1) >= 6 && string(p1) == string(p2) {
+		if len(p1) >= 1 && string(p1) == string(p2) {
 			cfg.RootPass = string(p1)
 			break
 		}
 		fmt.Println(red + "Passwords dont match" + reset)
 	}
 
-	cfg.Timezone = "UTC"
+	fmt.Print("\nEnter Timezone [default: UTC]: ")
+	tz, _ := reader.ReadString('\n')
+	tz = strings.TrimSpace(tz)
+	if tz == "" {
+		cfg.Timezone = "UTC"
+	} else {
+		cfg.Timezone = tz
+	}
+
 	cfg.Keymap = "us"
-	cfg.Locale = "en_US.UTF-8"
+
+	fmt.Print("Enter Locale [default: en_US.UTF-8]: ")
+	loc, _ := reader.ReadString('\n')
+	loc = strings.TrimSpace(loc)
+	if loc == "" {
+		cfg.Locale = "en_US.UTF-8"
+	} else {
+		cfg.Locale = loc
+	}
 }
 
 func runInstaller(cfg *Config) error {
