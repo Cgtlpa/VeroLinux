@@ -523,19 +523,21 @@ func findNewPartitions(disk string, before []string) []string {
 }
 
 func createBtrfsSubvolumes(mountPoint string) error {
-	os.MkdirAll(filepath.Join(mountPoint, "@/usr"), 0755)
 	subvols := []string{"@", "@/.snapshots", "@/home", "@/var", "@/opt", "@/root", "@/tmp", "@/usr/local"}
 	for _, sv := range subvols {
 		full := filepath.Join(mountPoint, sv)
 		out, err := exec.Command("btrfs", "subvolume", "create", full).CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("btrfs subvolume failure %s: %s", sv, strings.TrimSpace(string(out)))
+			msg := strings.TrimSpace(string(out))
+			if strings.Contains(msg, "File exists") {
+				continue
+			}
+			return fmt.Errorf("btrfs subvolume failure %s: %s", sv, msg)
 		}
 	}
 	exec.Command("chattr", "+C", filepath.Join(mountPoint, "@/var")).Run()
 	return nil
 }
-
 func mountBtrfsSubvolumes(rootDevice string, cfg Config) {
 	subvolsToMount := []string{".snapshots", "var", "opt", "root", "tmp", "usr/local"}
 	if cfg.PartLayout != "split" {
