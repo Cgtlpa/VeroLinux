@@ -59,7 +59,7 @@ type Config struct {
 
 func main() {
 	if os.Getuid() != 0 {
-		fmt.Println(red + "[!] Yo, you need root privileges to run this installer." + reset)
+		fmt.Println(red + "you need root privileges to run this installer" + reset)
 		os.Exit(1)
 	}
 
@@ -67,29 +67,29 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		fmt.Println(red + "\n\n[!] Install cancelled by user. Cleaning up the mounts..." + reset)
+		fmt.Println(red + "\n\n Install cancelled by user and Cleaning up the mounts" + reset)
 		cleanupMounts()
 		os.Exit(130)
 	}()
 
-	fmt.Println(cyan + "==================================================")
-	fmt.Printf("      Welcome to the %s Linux Installer!\n", distroName)
-	fmt.Println("==================================================" + reset)
+	fmt.Println(cyan + "======")
+	fmt.Printf("      Welcome to the %s Linux Installer\n", distroName)
+	fmt.Println("======" + reset)
 
 	var cfg Config
 	runWizard(&cfg)
 
-	fmt.Println(green + "\n[+] Config looks good! Let's get this installation started..." + reset)
+	fmt.Println(green + "\n[+] Config looks good installation starting" + reset)
 	if err := runInstaller(&cfg); err != nil {
-		fmt.Printf(red+"\n[!] Ah crap, the install failed: %v\n"+reset, err)
+		fmt.Printf(red+"\nthe install failed: %v\n"+reset, err)
 		cleanupMounts()
 		os.Exit(1)
 	}
 
-	fmt.Println(green + "\n==================================================")
-	fmt.Printf("  %s Linux is finally installed! Enjoy your new setup.\n", distroName)
-	fmt.Println("  Go ahead and reboot whenever you are ready.")
-	fmt.Println("==================================================" + reset)
+	fmt.Println(green + "\n ")
+	fmt.Printf("  %s is finally installed\n", distroName)
+	fmt.Println("  u can reboot now")
+	fmt.Println("" + reset)
 }
 
 func runWizard(cfg *Config) {
@@ -97,15 +97,15 @@ func runWizard(cfg *Config) {
 
 	disks, err := listBlockDevices()
 	if err != nil || len(disks) == 0 {
-		fmt.Println(red + "[!] Couldn't find any usable disks to install to." + reset)
+		fmt.Println(red + "no disks fond " + reset)
 		os.Exit(1)
 	}
-	fmt.Println(yellow + "\nFound these drives:" + reset)
+	fmt.Println(yellow + "\nFound these ssd:" + reset)
 	for i, d := range disks {
 		fmt.Printf(" [%d] /dev/%s (%s)\n", i, d.name, formatBytes(d.size))
 	}
 	for {
-		fmt.Print("Pick a drive index: ")
+		fmt.Print("Pick a drive: ")
 		input, _ := reader.ReadString('\n')
 		idx, err := strconv.Atoi(strings.TrimSpace(input))
 		if err == nil && idx >= 0 && idx < len(disks) {
@@ -113,13 +113,13 @@ func runWizard(cfg *Config) {
 			cfg.DiskSizeBytes = disks[idx].size
 			break
 		}
-		fmt.Println(red + "[!] That's not a valid disk choice." + reset)
+		fmt.Println(red + "u cant choose that vro" + reset)
 	}
 
 	fmt.Println(yellow + "\nHow do you want to partition it?" + reset)
-	fmt.Println(" [1] Standard (Single Btrfs partition with subvolumes)")
+	fmt.Println(" [1] Standard (Single Btrfs partition with subvolumes (reccomended)")
 	fmt.Println(" [2] Split Home (Separate Ext4 partitions for root and home)")
-	fmt.Println(" [3] Dual Boot (Install alongside what's already there)")
+	fmt.Println(" [3] Dual Boot (Install alongside zereneOs ofc / peak distro btw )")
 	for {
 		fmt.Print("Choose an option [1-3]: ")
 		input, _ := reader.ReadString('\n')
@@ -131,7 +131,7 @@ func runWizard(cfg *Config) {
 		case "3":
 			cfg.PartLayout = "dualboot"
 		default:
-			fmt.Println(red + "[!] Dude, it's gotta be 1, 2, or 3." + reset)
+			fmt.Println(red + "brochacho, it's gotta be 1, 2, or 3" + reset)
 			continue
 		}
 		break
@@ -147,16 +147,16 @@ func runWizard(cfg *Config) {
 				cfg.RootSizeGB = size
 				break
 			}
-			fmt.Println(red + "[!] Needs to be a valid number bigger than 15 GB." + reset)
+			fmt.Println(red + "Needs to be a valid number bigger than 15 GB" + reset)
 		}
 	}
 
-	fmt.Println(yellow + "\nWhat GPU drivers do you need?" + reset)
+	fmt.Println(yellow + "\nWhat GPU drivers" + reset)
 	fmt.Printf(" [1] %s\n", gpuNvidia)
 	fmt.Printf(" [2] %s\n", gpuOpenSrc)
 	fmt.Printf(" [3] %s\n", gpuNone)
 	for {
-		fmt.Print("Pick an option [1-3]: ")
+		fmt.Print("Pick an option [1-3] (and to xwcvt 4 is not an answer): ")
 		input, _ := reader.ReadString('\n')
 		switch strings.TrimSpace(input) {
 		case "1":
@@ -166,7 +166,7 @@ func runWizard(cfg *Config) {
 		case "3":
 			cfg.GPU = gpuNone
 		default:
-			fmt.Println(red + "[!] Gotta choose 1, 2, or 3." + reset)
+			fmt.Println(red + "i fucking said either choose 1, 2, or 3." + reset)
 			continue
 		}
 		break
@@ -190,7 +190,7 @@ func runWizard(cfg *Config) {
 		case "4":
 			cfg.Desktop = "Minimal"
 		default:
-			fmt.Println(red + "[!] Come on, pick between 1 and 4." + reset)
+			fmt.Println(red + " pick between 1 and 4." + reset)
 			continue
 		}
 		break
@@ -205,19 +205,19 @@ func runWizard(cfg *Config) {
 			cfg.Hostname = hn
 			break
 		}
-		fmt.Println(red + "[!] Nah, that hostname won't work. Use letters, numbers, and hyphens only." + reset)
+		fmt.Println(red + "js choose a normal name bro" + reset)
 	}
 
 	usrRegex := regexp.MustCompile(`^[a-z_][a-z0-9_-]*\$?$`)
 	for {
-		fmt.Print("Set up a username (non-root): ")
+		fmt.Print("Set up a username (non-root ofc): ")
 		usr, _ := reader.ReadString('\n')
 		usr = strings.TrimSpace(usr)
 		if usrRegex.MatchString(usr) && usr != "root" {
 			cfg.Username = usr
 			break
 		}
-		fmt.Println(red + "[!] Username looks wrong. Stick to standard lowercase letters and numbers." + reset)
+		fmt.Println(red + "Username looks wrong. Stick to standard lowercase letters and numbers" + reset)
 	}
 
 	for {
@@ -230,7 +230,7 @@ func runWizard(cfg *Config) {
 			cfg.Password = string(p1)
 			break
 		}
-		fmt.Println(red + "[!] Passwords don't match or they're too short (needs 6+ chars)." + reset)
+		fmt.Println(red + "Passwords dont match" + reset)
 	}
 
 	for {
@@ -243,7 +243,7 @@ func runWizard(cfg *Config) {
 			cfg.RootPass = string(p1)
 			break
 		}
-		fmt.Println(red + "[!] Passwords don't match or they're too short (needs 6+ chars)." + reset)
+		fmt.Println(red + "Passwords dont match" + reset)
 	}
 
 	cfg.Timezone = "UTC"
@@ -257,9 +257,9 @@ func runInstaller(cfg *Config) error {
 		fn   func(*Config) error
 	}
 	steps := []step{
-		{"Partitioning the drive", partitionDisk},
-		{"Installing base system packages (openSUSE Tumbleweed)", installBase},
-		{"Running system setup inside chroot", configure},
+		{"Partitioning the disk", partitionDisk},
+		{"Installing base system packages", installBase},
+		{"doing more stuff", configure},
 	}
 
 	for _, s := range steps {
@@ -276,7 +276,7 @@ func partitionDisk(cfg *Config) error {
 		return partitionDiskDualboot(cfg)
 	}
 
-	fmt.Printf("[*] Setting up GPT partition table on %s...\n", cfg.Disk)
+	fmt.Printf("Setting up GPT partition table on %s...\n", cfg.Disk)
 	if err := exec.Command("parted", "-s", cfg.Disk, "mklabel", "gpt").Run(); err != nil {
 		return fmt.Errorf("couldn't create disk label: %v", err)
 	}
@@ -331,7 +331,7 @@ func partitionDisk(cfg *Config) error {
 	cfg.RootDevice = root
 	cfg.HomeDevice = home
 
-	fmt.Printf("[*] Formatting the new partitions (EFI: %s, Root: %s)...\n", efi, root)
+	fmt.Printf("Formatting the new partitions (EFI: %s, Root: %s)...\n", efi, root)
 	if err := exec.Command("mkfs.vfat", "-F32", efi).Run(); err != nil {
 		return fmt.Errorf("couldn't format EFI partition: %v", err)
 	}
@@ -358,7 +358,7 @@ func partitionDisk(cfg *Config) error {
 }
 
 func partitionDiskDualboot(cfg *Config) error {
-	fmt.Println("[*] Checking things out for dual boot setup...")
+	fmt.Println("Checking things out for dual boot setup")
 	parts, err := getDiskPartitions(cfg.Disk)
 	if err != nil || len(parts) == 0 {
 		return fmt.Errorf("couldn't read existing partitions: %v", err)
@@ -390,7 +390,7 @@ func partitionDiskDualboot(cfg *Config) error {
 		}
 	}
 
-	fmt.Printf("[*] Dropping the new root partition in the free space around %s...\n", startOffset)
+	fmt.Printf("Dropping the new root partition in the free space around %s \n", startOffset)
 	if err := exec.Command("parted", "-s", cfg.Disk, "mkpart", "root", "ext4", startOffset, "100%").Run(); err != nil {
 		return fmt.Errorf("couldn't partition the free space: %v", err)
 	}
@@ -436,7 +436,7 @@ func createBtrfsSubvolumes(tmpMount string, cfg *Config) error {
 }
 
 func mountTargetLayout(cfg *Config) error {
-	fmt.Println("[*] Mounting all the folders to prepare for install...")
+	fmt.Println("Mounting all the folders to prepare for install")
 	os.MkdirAll("/mnt", 0755)
 
 	if cfg.PartLayout == "standard" {
@@ -479,7 +479,7 @@ func mountTargetLayout(cfg *Config) error {
 }
 
 func installBase(cfg *Config) error {
-	fmt.Println("[*] Refreshing repos and pulling down the base packages...")
+	fmt.Println("Refreshing repos")
 	
 	zypperArgs := []string{
 		"--installroot=/mnt",
@@ -512,7 +512,7 @@ func installBase(cfg *Config) error {
 		extraPackages = append(extraPackages, "patterns-gnome-gnome", "gdm")
 	}
 
-	fmt.Println("[*] Installing extra packages and desktop setup...")
+	fmt.Println(" Installing extra packages and desktop setup")
 	installArgs := append([]string{"--installroot=/mnt", "--non-interactive", "install"}, extraPackages...)
 	cmd = exec.Command("zypper", installArgs...)
 	cmd.Stdout = os.Stdout
@@ -521,7 +521,7 @@ func installBase(cfg *Config) error {
 }
 
 func configure(cfg *Config) error {
-	fmt.Println("[*] Writing configs and wrapping things up...")
+	fmt.Println("Writing configs and wrapping things up")
 
 	if err := writeFstab(cfg); err != nil {
 		return fmt.Errorf("couldn't generate fstab: %v", err)
@@ -569,7 +569,7 @@ chmod 440 /etc/sudoers.d/10-wheel
 	}
 	defer os.Remove(scriptPath)
 
-	fmt.Println("[*] Chrooting into the new system to finish configuration...")
+	fmt.Println("Chrooting into the new system")
 	
 	apiDirs := []string{"/dev", "/proc", "/sys", "/run"}
 	for _, d := range apiDirs {
