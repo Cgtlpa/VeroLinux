@@ -28,7 +28,7 @@ const (
 	green  = "\033[32m"
 	yellow = "\033[33m"
 	cyan   = "\033[36m"
-	purple = "\033[35m" 
+	purple = "\033[35m"
 	white  = "\033[37m"
 )
 
@@ -97,7 +97,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	cleanup()
 	fmt.Println(green + "\n[✓] Installation complete! Remove the USB installation media and reboot." + reset)
 }
 
@@ -269,35 +268,59 @@ func validHostname(s string) bool {
 
 func gatherConfig() Config {
 	var cfg Config
-	profiles := []RegionalProfile{
-		{"United States / Global", "en_US.UTF-8", "us", "UTC"},
-		{"Germany", "de_DE.UTF-8", "de", "Europe/Berlin"},
-		{"United Kingdom", "en_GB.UTF-8", "uk", "Europe/London"},
-		{"France", "fr_FR.UTF-8", "fr", "Europe/Paris"},
-		{"Spain", "es_ES.UTF-8", "es", "Europe/Madrid"},
-		{"Italy", "it_IT.UTF-8", "it", "Europe/Rome"},
-		{"Portugal", "pt_PT.UTF-8", "pt", "Europe/Lisbon"},
-		{"Russia", "ru_RU.UTF-8", "ru", "Europe/Moscow"},
-		{"Poland", "pl_PL.UTF-8", "pl", "Europe/Warsaw"},
-	}
 
-	fmt.Println(purple + "Select regional environment:" + reset)
-	for i, p := range profiles {
-		fmt.Printf("  [%d] %-22s -> Locale: %-12s | Keymap: %-3s | TZ: %s\n", i+1, p.Name, p.Locale, p.Keymap, p.Timezone)
+	// Keyboard layout selection
+	keyboardLayouts := []string{"us", "de", "uk", "fr", "es", "it", "pt", "ru", "pl", "ja"}
+	fmt.Println(purple + "Select keyboard layout:" + reset)
+	for i, layout := range keyboardLayouts {
+		fmt.Printf("  [%d] %s\n", i+1, layout)
 	}
 	fmt.Println()
 
 	for {
-		input := prompt("Choose regional configuration [1-9]", "1", false)
+		input := prompt("Choose keyboard layout", "1", false)
 		idx, err := strconv.Atoi(input)
-		if err == nil && idx >= 1 && idx <= 9 {
-			chosen := profiles[idx-1]
-			cfg.Locale = chosen.Locale
-			cfg.Keymap = chosen.Keymap
-			cfg.Timezone = chosen.Timezone
+		if err == nil && idx >= 1 && idx <= len(keyboardLayouts) {
+			cfg.Keymap = keyboardLayouts[idx-1]
 			break
 		}
-		fmt.Println(red + "Pick between 1 and 9." + reset)
+		fmt.Printf(red+"Invalid selection. Pick between 1 and %d.\n"+reset, len(keyboardLayouts))
+	}
+
+	// Timezone selection
+	timezones := []string{"UTC", "Europe/Berlin", "Europe/London", "Europe/Paris", "Europe/Madrid", "Europe/Rome", "Europe/Lisbon", "Europe/Moscow", "Europe/Warsaw", "America/New_York", "America/Los_Angeles", "Asia/Tokyo", "Australia/Sydney"}
+	fmt.Println(purple + "\nSelect timezone:" + reset)
+	for i, tz := range timezones {
+		fmt.Printf("  [%d] %s\n", i+1, tz)
+	}
+	fmt.Println()
+
+	for {
+		input := prompt("Choose timezone", "1", false)
+		idx, err := strconv.Atoi(input)
+		if err == nil && idx >= 1 && idx <= len(timezones) {
+			cfg.Timezone = timezones[idx-1]
+			break
+		}
+		fmt.Printf(red+"Invalid selection. Pick between 1 and %d.\n"+reset, len(timezones))
+	}
+
+	// Locale selection
+	locales := []string{"en_US.UTF-8", "de_DE.UTF-8", "en_GB.UTF-8", "fr_FR.UTF-8", "es_ES.UTF-8", "it_IT.UTF-8", "pt_PT.UTF-8", "ru_RU.UTF-8", "pl_PL.UTF-8", "ja_JP.UTF-8"}
+	fmt.Println(purple + "\nSelect system locale:" + reset)
+	for i, locale := range locales {
+		fmt.Printf("  [%d] %s\n", i+1, locale)
+	}
+	fmt.Println()
+
+	for {
+		input := prompt("Choose locale", "1", false)
+		idx, err := strconv.Atoi(input)
+		if err == nil && idx >= 1 && idx <= len(locales) {
+			cfg.Locale = locales[idx-1]
+			break
+		}
+		fmt.Printf(red+"Invalid selection. Pick between 1 and %d.\n"+reset, len(locales))
 	}
 
 	exec.Command("loadkeys", cfg.Keymap).Run()
@@ -526,6 +549,9 @@ func createBtrfsSubvolumes(mountPoint string) error {
 	subvols := []string{"@", "@/.snapshots", "@/home", "@/var", "@/opt", "@/root", "@/tmp", "@/usr/local"}
 	for _, sv := range subvols {
 		full := filepath.Join(mountPoint, sv)
+		// Ensure parent directory exists
+		parentDir := filepath.Dir(full)
+		os.MkdirAll(parentDir, 0755)
 		out, err := exec.Command("btrfs", "subvolume", "create", full).CombinedOutput()
 		if err != nil {
 			msg := strings.TrimSpace(string(out))
@@ -535,10 +561,13 @@ func createBtrfsSubvolumes(mountPoint string) error {
 			return fmt.Errorf("btrfs subvolume failure %s: %s", sv, msg)
 		}
 	}
-	exec.Command("chattr", "+C", filepath.Join(mountPoint, "@/var")).Run()
+	if err := exec.Command("chattr", "+C", filepath.Join(mountPoint, "@/var")).Run(); err != nil {
+		// chattr might not be available on all systems, don't fail the installation
+		fmt.Printf("Warning: could not set copy-on-write attribute on /var: %v\n", err)
+	}
 	return nil
 }
-func mountBtrfsSubvolumes(rootDevice string, cfg Config) {
+func mountBtrfsSubvolumes(rootDevice string, cfg Config) error {
 	subvolsToMount := []string{".snapshots", "var", "opt", "root", "tmp", "usr/local"}
 	if cfg.PartLayout != "split" {
 		subvolsToMount = append(subvolsToMount, "home")
@@ -546,8 +575,11 @@ func mountBtrfsSubvolumes(rootDevice string, cfg Config) {
 	for _, sv := range subvolsToMount {
 		targetDir := filepath.Join("/mnt", sv)
 		os.MkdirAll(targetDir, 0755)
-		exec.Command("mount", "-o", "subvol=@/"+sv, rootDevice, targetDir).Run()
+		if err := exec.Command("mount", "-o", "subvol=@/"+sv, rootDevice, targetDir).Run(); err != nil {
+			return fmt.Errorf("failed mounting subvolume %s: %w", sv, err)
+		}
 	}
+	return nil
 }
 
 func partitionDisk(cfg Config) error {
@@ -603,7 +635,15 @@ func partitionDisk(cfg Config) error {
 	}
 	exec.Command("udevadm", "settle", "--timeout=10").Run()
 
-	newParts := findNewPartitions(disk, before)
+	var newParts []string
+	for i := 0; i < 5; i++ {
+		exec.Command("udevadm", "settle", "--timeout=10").Run()
+		newParts = findNewPartitions(disk, before)
+		if len(newParts) >= 2 {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 	if len(newParts) < 2 {
 		return fmt.Errorf("could not detect all new partitions, found: %v", newParts)
 	}
@@ -628,7 +668,15 @@ func partitionDisk(cfg Config) error {
 		checkPaths = append(checkPaths, home)
 	}
 	for _, p := range checkPaths {
-		if _, err := os.Stat(p); os.IsNotExist(err) {
+		found := false
+		for i := 0; i < 5; i++ {
+			if _, err := os.Stat(p); err == nil {
+				found = true
+				break
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
+		if !found {
 			return fmt.Errorf("device node %s not localized by kernel mapping tables", p)
 		}
 	}
@@ -666,13 +714,18 @@ func partitionDisk(cfg Config) error {
 		return err
 	}
 
-	mountBtrfsSubvolumes(root, cfg)
+	if err := mountBtrfsSubvolumes(root, cfg); err != nil {
+		exec.Command("umount", "-l", "/mnt").Run()
+		return err
+	}
 
 	os.MkdirAll("/mnt/boot/efi", 0755)
 	if err := spinner("Staging targeted filesystem index configurations", func() error {
 		_, err := exec.Command("mount", efi, "/mnt/boot/efi").CombinedOutput()
 		return err
 	}); err != nil {
+		exec.Command("umount", "-l", "/mnt/boot/efi").Run()
+		exec.Command("umount", "-l", "/mnt").Run()
 		return err
 	}
 
@@ -688,6 +741,9 @@ func partitionDisk(cfg Config) error {
 			_, err := exec.Command("mount", home, "/mnt/home").CombinedOutput()
 			return err
 		}); err != nil {
+			exec.Command("umount", "-l", "/mnt/home").Run()
+			exec.Command("umount", "-l", "/mnt/boot/efi").Run()
+			exec.Command("umount", "-l", "/mnt").Run()
 			return err
 		}
 	}
@@ -717,8 +773,15 @@ func partitionDiskDualboot(cfg Config) error {
 			return err
 		}
 		exec.Command("partprobe", disk).Run()
-		exec.Command("udevadm", "settle", "--timeout=10").Run()
-		newEFIs := findNewPartitions(disk, partsBefore)
+		var newEFIs []string
+		for i := 0; i < 5; i++ {
+			exec.Command("udevadm", "settle", "--timeout=10").Run()
+			newEFIs = findNewPartitions(disk, partsBefore)
+			if len(newEFIs) == 1 {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
 		if len(newEFIs) != 1 {
 			return fmt.Errorf("failed tracing standalone root slice links")
 		}
@@ -733,8 +796,15 @@ func partitionDiskDualboot(cfg Config) error {
 		return err
 	}
 	exec.Command("partprobe", disk).Run()
-	exec.Command("udevadm", "settle", "--timeout=10").Run()
-	newRoots := findNewPartitions(disk, partsBefore)
+	var newRoots []string
+	for i := 0; i < 5; i++ {
+		exec.Command("udevadm", "settle", "--timeout=10").Run()
+		newRoots = findNewPartitions(disk, partsBefore)
+		if len(newRoots) == 1 {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 	if len(newRoots) != 1 {
 		return fmt.Errorf("failed index verification updates")
 	}
@@ -769,7 +839,9 @@ func partitionDiskDualboot(cfg Config) error {
 	if err := exec.Command("mount", "-o", "subvol=@", rootDevice, "/mnt").Run(); err != nil {
 		return fmt.Errorf("failed mounting subvol=@ layout reference root: %w", err)
 	}
-	mountBtrfsSubvolumes(rootDevice, cfg)
+	if err := mountBtrfsSubvolumes(rootDevice, cfg); err != nil {
+		return err
+	}
 	os.MkdirAll("/mnt/boot/efi", 0755)
 	if err := exec.Command("mount", efiDevice, "/mnt/boot/efi").Run(); err != nil {
 		return fmt.Errorf("failed indexing boot media mapping variables: %w", err)
@@ -779,11 +851,18 @@ func partitionDiskDualboot(cfg Config) error {
 }
 
 func getUUID(path string) (string, error) {
-	out, err := exec.Command("lsblk", "-d", "-no", "UUID", path).Output()
-	if err != nil {
-		return "", err
+	// Try blkid first (more universal), with multiple retries for mounted filesystems
+	for i := 0; i < 5; i++ {
+		uuidOut, err := exec.Command("blkid", "-s", "UUID", "-o", "value", path).CombinedOutput()
+		if err == nil {
+			uuid := strings.TrimSpace(string(uuidOut))
+			if uuid != "" {
+				return uuid, nil
+			}
+		}
+		time.Sleep(200 * time.Millisecond)
 	}
-	return strings.TrimSpace(string(out)), nil
+	return "", fmt.Errorf("could not retrieve UUID for %s", path)
 }
 
 func writeFstab(cfg Config) error {
@@ -889,7 +968,10 @@ func installBase(cfg Config) error {
 	cmd := exec.Command("zypper", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("zypper package installation failed: %w", err)
+	}
+	return nil
 }
 
 func configure(cfg Config) error {
@@ -911,6 +993,10 @@ func configure(cfg Config) error {
 	}()
 
 	exec.Command("cp", "/etc/resolv.conf", "/mnt/etc/").Run()
+	if _, err := os.Stat("/etc/resolv.conf"); os.IsNotExist(err) {
+		// Fallback for systems without resolv.conf
+		_ = os.WriteFile("/mnt/etc/resolv.conf", []byte("nameserver 8.8.8.8\nnameserver 8.8.4.4\n"), 0644)
+	}
 
 	if err := writeFstab(cfg); err != nil {
 		return err
@@ -921,6 +1007,7 @@ func configure(cfg Config) error {
 	script += fmt.Sprintf("ln -sf /usr/share/zoneinfo/%s /etc/localtime\n", cfg.Timezone)
 	script += fmt.Sprintf("echo '%s' > /etc/timezone\n", cfg.Timezone)
 	script += fmt.Sprintf("echo 'LANG=%s' > /etc/locale.conf\n", cfg.Locale)
+	script += "locale-gen\n"
 	script += fmt.Sprintf("echo 'KEYMAP=%s' > /etc/vconsole.conf\n", cfg.Keymap)
 	script += fmt.Sprintf("cat > /etc/os-release << 'EOF'\nNAME=\"%s Linux\"\nID=%s\nPRETTY_NAME=\"%s Linux\"\nEOF\n", distroName, distroID, distroName)
 	script += fmt.Sprintf("useradd -m -G wheel,users -s /bin/bash '%s'\n", cfg.Username)
@@ -933,12 +1020,12 @@ func configure(cfg Config) error {
 	script += `echo '%wheel ALL=(ALL:ALL) ALL' > /etc/sudoers.d/10-wheel
 chmod 440 /etc/sudoers.d/10-wheel
 `
-	script += "mkinitrd\n"
-	script += fmt.Sprintf("grub2-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=%s\n", distroName)
+	script += "dracut --hostonly --hostonly-cmdline -f || { echo 'Initramfs generation failed'; exit 1; }\n"
+	script += fmt.Sprintf("grub2-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=%s || { echo 'GRUB installation failed'; exit 1; }\n", distroName)
 	if cfg.PartLayout == "dualboot" {
 		script += "echo 'GRUB_DISABLE_OS_PROBER=false' >> /etc/default/grub\n"
 	}
-	script += "grub2-mkconfig -o /boot/grub2/grub.cfg\n"
+	script += "grub2-mkconfig -o /boot/grub2/grub.cfg || { echo 'GRUB config generation failed'; exit 1; }\n"
 	script += "systemctl enable NetworkManager\n"
 
 	switch cfg.Desktop {
@@ -961,5 +1048,8 @@ chmod 440 /etc/sudoers.d/10-wheel
 	fmt.Println(cyan + "[*] Staging configuration structures to root tree targets..." + reset)
 	cmd := exec.Command("chroot", "/mnt", "/bin/bash", "/setup.sh")
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("chroot configuration script failed: %w", err)
+	}
+	return nil
 }
