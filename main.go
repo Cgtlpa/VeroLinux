@@ -72,7 +72,20 @@ func main() {
 		os.Exit(130)
 	}()
 
-	fmt.Println(cyan + "======")
+	// Clear the screen for a fresh boot look
+	fmt.Print("\033[H\033[2J")
+
+	// Huge purple EXODITE banner
+	fmt.Println(purple + `
+███████╗██╗  ██╗██████╗ ██████╗ ██╗████████╗███████╗
+██╔════╝╚██╗██╔╝██╔═══██╗██╔══██╗██║╚══██╔══╝██╔════╝
+█████╗   ╚███╔╝ ██║   ██║██║  ██║██║   ██║   █████╗  
+██╔══╝   ██╔██╗ ██║   ██║██║  ██║██║   ██║   ██╔══╝  
+███████╗██╔╝ ██╗╚██████╔╝██████╔╝██║   ██║   ███████╗
+╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝   ╚═╝   ╚══════╝
+` + reset)
+
+	fmt.Println(purple + "======")
 	fmt.Printf("      Welcome to the %s Linux Installer\n", distroName)
 	fmt.Println("======" + reset)
 
@@ -177,8 +190,9 @@ func runWizard(cfg *Config) {
 	fmt.Println(" [2] XFCE4 (Light and classic)")
 	fmt.Println(" [3] GNOME (Clean and modern)")
 	fmt.Println(" [4] Minimal (Just the terminal, no GUI)")
+	fmt.Println(purple + " [5] Hyprland (Dynamic tiling Wayland compositor)" + reset)
 	for {
-		fmt.Print("Which one do you want? [1-4]: ")
+		fmt.Print("Which one do you want? [1-5]: ")
 		input, _ := reader.ReadString('\n')
 		switch strings.TrimSpace(input) {
 		case "1":
@@ -189,8 +203,10 @@ func runWizard(cfg *Config) {
 			cfg.Desktop = "GNOME"
 		case "4":
 			cfg.Desktop = "Minimal"
+		case "5":
+			cfg.Desktop = "Hyprland"
 		default:
-			fmt.Println(red + " pick between 1 and 4." + reset)
+			fmt.Println(red + " pick between 1 and 5." + reset)
 			continue
 		}
 		break
@@ -309,7 +325,7 @@ func partitionDisk(cfg *Config) error {
 	time.Sleep(2 * time.Second)
 	newParts, err := getDiskPartitions(cfg.Disk)
 	if err != nil || len(newParts) < 2 {
-		return fmt.Errorf("kernel didn't catch the new partitions in time: %v", err)
+		return fmt.Errorf("kernel didnt catch the new partitions in time: %v", err)
 	}
 
 	var efi, root, home string
@@ -349,7 +365,7 @@ func partitionDisk(cfg *Config) error {
 		}
 		if cfg.PartLayout == "split" && home != "" {
 			if err := exec.Command("mkfs.ext4", "-F", home).Run(); err != nil {
-				return fmt.Errorf("couldn't format ext4 home: %v", err)
+				return fmt.Errorf("couldnt format ext4 home: %v", err)
 			}
 		}
 	}
@@ -361,7 +377,7 @@ func partitionDiskDualboot(cfg *Config) error {
 	fmt.Println("Checking things out for dual boot setup")
 	parts, err := getDiskPartitions(cfg.Disk)
 	if err != nil || len(parts) == 0 {
-		return fmt.Errorf("couldn't read existing partitions: %v", err)
+		return fmt.Errorf("couldnt read existing partitions: %v", err)
 	}
 
 	var efiDevice string
@@ -392,7 +408,7 @@ func partitionDiskDualboot(cfg *Config) error {
 
 	fmt.Printf("Dropping the new root partition in the free space around %s \n", startOffset)
 	if err := exec.Command("parted", "-s", cfg.Disk, "mkpart", "root", "ext4", startOffset, "100%").Run(); err != nil {
-		return fmt.Errorf("couldn't partition the free space: %v", err)
+		return fmt.Errorf("couldnt partition the free space: %v", err)
 	}
 
 	time.Sleep(2 * time.Second)
@@ -404,7 +420,7 @@ func partitionDiskDualboot(cfg *Config) error {
 
 	fmt.Printf("[*] Formatting partition %s as ext4...\n", rootDevice)
 	if err := exec.Command("mkfs.ext4", "-F", rootDevice).Run(); err != nil {
-		return fmt.Errorf("couldn't format the dual-boot root partition: %v", err)
+		return fmt.Errorf("couldnt format the dual-boot root partition: %v", err)
 	}
 
 	return mountTargetLayout(cfg)
@@ -413,7 +429,7 @@ func partitionDiskDualboot(cfg *Config) error {
 func createBtrfsSubvolumes(tmpMount string, cfg *Config) error {
 	os.MkdirAll(tmpMount, 0755)
 	if err := exec.Command("mount", cfg.RootDevice, tmpMount).Run(); err != nil {
-		return fmt.Errorf("couldn't mount root partition for subvolume creation: %v", err)
+		return fmt.Errorf("couldnt mount root partition for subvolume creation: %v", err)
 	}
 	defer exec.Command("umount", tmpMount).Run()
 
@@ -429,7 +445,7 @@ func createBtrfsSubvolumes(tmpMount string, cfg *Config) error {
 		}
 
 		if err := exec.Command("btrfs", "subvolume", "create", targetPath).Run(); err != nil {
-			return fmt.Errorf("couldn't create subvolume %s: %v", sv, err)
+			return fmt.Errorf("couldnt create subvolume %s: %v", sv, err)
 		}
 	}
 	return nil
@@ -465,7 +481,7 @@ func mountTargetLayout(cfg *Config) error {
 		if cfg.PartLayout == "split" && cfg.HomeDevice != "" {
 			os.MkdirAll("/mnt/home", 0755)
 			if err := exec.Command("mount", cfg.HomeDevice, "/mnt/home").Run(); err != nil {
-				return fmt.Errorf("couldn't mount home partition: %v", err)
+				return fmt.Errorf("couldnt mount home partition: %v", err)
 			}
 		}
 	}
@@ -492,7 +508,7 @@ func installBase(cfg *Config) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("couldn't install base packages: %v", err)
+		return fmt.Errorf("couldnt install base packages: %v", err)
 	}
 
 	extraPackages := []string{"kernel-default", "grub2", "grub2-x86_64-efi", "NetworkManager", "sudo"}
@@ -510,6 +526,8 @@ func installBase(cfg *Config) error {
 		extraPackages = append(extraPackages, "patterns-xfce-xfce", "lightdm")
 	case "GNOME":
 		extraPackages = append(extraPackages, "patterns-gnome-gnome", "gdm")
+	case "Hyprland":
+		extraPackages = append(extraPackages, "hyprland", "sddm", "waybar", "kitty")
 	}
 
 	fmt.Println(" Installing extra packages and desktop setup")
@@ -561,6 +579,8 @@ chmod 440 /etc/sudoers.d/10-wheel
 		script += "systemctl enable lightdm\n"
 	case "GNOME":
 		script += "systemctl enable gdm\n"
+	case "Hyprland":
+		script += "systemctl enable sddm\n"
 	}
 
 	scriptPath := "/mnt/setup.sh"
