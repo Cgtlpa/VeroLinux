@@ -307,7 +307,7 @@ func gatherConfig() Config {
 
 	// Locale selection
 	locales := []string{"en_US.UTF-8", "de_DE.UTF-8", "en_GB.UTF-8", "fr_FR.UTF-8", "es_ES.UTF-8", "it_IT.UTF-8", "pt_PT.UTF-8", "ru_RU.UTF-8", "pl_PL.UTF-8", "ja_JP.UTF-8"}
-	fmt.Println(purple + "\nSelect system locale:" + reset)
+	fmt.Println(purple + "\nSelect system locale: [Us]" + reset)
 	for i, locale := range locales {
 		fmt.Printf("  [%d] %s\n", i+1, locale)
 	}
