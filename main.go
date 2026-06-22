@@ -135,12 +135,12 @@ func printWelcome() {
 	fmt.Print("\033[H\033[2J")
 
 	logo := purple +
-		" ███████╗██╗  ██╗██████╗ ██████╗ ██╗████████╗███████╗\n" +
-		" ██╔════╝╚██╗██╔╝██╔═══██╗██╔══██╗██║╚══██╔══╝██╔════╝\n" +
-		" █████╗   ╚███╔╝ ██║   ██║██║  ██║██║   ██║   █████╗  \n" +
-		" ██╔══╝   ██╔██╗ ██║   ██║██║  ██║██║   ██║   ██╔══╝  \n" +
-		" ███████╗██╔╝ ██╗╚██████╔╝██████╔╝██║   ██║   ███████╗\n" +
-		" ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝   ╚═╝   ╚══════╝\n" + reset
+		" ███████ | ██   ██ |██████   ██████  ██ ████████ ███████ \n" +
+		" ██      |  ██ ██  |██  | ██ ██ | ██ ██ |  ██  | ██ ---  \n" +
+		" █████   |   ███   |██  | ██ ██ | ██ ██ |  ██  | █████   \n" +
+		" ██      |  ██ ██  |██  | ██ ██ | ██ ██ |  ██  | ██ ---  \n" +
+		" ███████ | ██   ██ |██████   ██████  ██ |  ██  | ███████ \n" +
+		"            \n" + reset
 
 	tux := purple +
 		"    .--.\n" +
@@ -307,7 +307,7 @@ func gatherConfig() Config {
 
 	// Locale selection
 	locales := []string{"en_US.UTF-8", "de_DE.UTF-8", "en_GB.UTF-8", "fr_FR.UTF-8", "es_ES.UTF-8", "it_IT.UTF-8", "pt_PT.UTF-8", "ru_RU.UTF-8", "pl_PL.UTF-8", "ja_JP.UTF-8"}
-	fmt.Println(purple + "\nSelect system locale: [Us]" + reset)
+	fmt.Println(purple + "\nSelect system locale:" + reset)
 	for i, locale := range locales {
 		fmt.Printf("  [%d] %s\n", i+1, locale)
 	}
@@ -994,7 +994,6 @@ func configure(cfg Config) error {
 
 	exec.Command("cp", "/etc/resolv.conf", "/mnt/etc/").Run()
 	if _, err := os.Stat("/etc/resolv.conf"); os.IsNotExist(err) {
-		// Fallback for systems without resolv.conf
 		_ = os.WriteFile("/mnt/etc/resolv.conf", []byte("nameserver 8.8.8.8\nnameserver 8.8.4.4\n"), 0644)
 	}
 
